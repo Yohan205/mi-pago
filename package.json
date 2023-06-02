@@ -1,0 +1,22 @@
+{
+  "name": "mi-pago",
+  "version": "0.2.0",
+  "description": "Con esta libreria podras utilizar la API de MiPago",
+  "main": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yohan205/mi-pago.git"
+  },
+  "keywords": [
+    "node",
+    "API",
+    "fetch",
+    "MiPago"
+  ],
+  "author": "YohanColla",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Yohan205/mi-pago/issues"
+  },
+  "homepage": "https://github.com/Yohan205/mi-pago#readme"
+}
