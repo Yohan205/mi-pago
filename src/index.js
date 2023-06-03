@@ -3,7 +3,7 @@ const config = require('../settings/config');
 const operadores = require("../utils/operadores");
 const paquetes = require("../utils/paquetes");
 
-class miPago {
+class MiPago {
     #API = config.get('URI');
     #dataBody = config.get("headers")
     #results
@@ -26,7 +26,7 @@ class miPago {
      *  | MiPago - Saldo |
      * @return String - Devuelve el valor de saldo de la cuenta
      */
-    get saldo() {
+    get balance() {
       let queryEstado = this.queryBalance().then( data => data.Estado);
   
       let querySaldo = this.queryBalance("saldo");
@@ -108,6 +108,8 @@ class miPago {
 	 * @return {Object} Object with data or value String
 	 */
 	queryBalance(queryString) {
+    // Check the query string
+    queryString = this.#checkString(queryString);
     // Añade consulta al objeto data
     this.#data.consulta = "saldo";
 
@@ -142,56 +144,52 @@ class miPago {
 		// Añade consulta al objeto data
 		this.#data.consulta = "venta";
 		this.#data.tk = queryToken;
-		if (!queryToken) throw new Error("Token not found");
+		if (!queryToken) throw new Error("Token not found"); // Realizar vericacion del token para que sea con la estructura dada
 
 		// Complete the headers with the body data in json format
 		this.#dataBody.body = JSON.stringify(this.#data)
 
 		// Realiza el fetch a la API y da como resultado un objeto con la consulta
-		this.#results = fetchAPI(this.#dataBody)
-		.then( ans => ans).catch( err => err );
-
-		// res.tk = queryToken
-		// this.#results = Object.assign(res, resul);
-		this.#results.tk = queryToken
-		return this.#results
+		return this.#fetchAPI(this.#dataBody)
+		.then( ans => {ans.tk = queryToken; return ans;})
+		.catch( err => { return err });
 	}
 
 	/**
 	 *  | MiPago - Recarga |
 	 * @param {number} number - Phone number to send
-	 * @param {String} operador Chip operator to send
-	 * @param {number} valor - Value to send in pesos
-	 * @param {String} cobro Saldo - Ganancia
+	 * @param {String} operator Chip operator to send
+	 * @param {number} value - Value to send in pesos
+	 * @param {String} charge Saldo - Ganancia
 	 * @return {Object} Object with data
 	 */
-	recarga(number, operador, valor, cobro){
+	recarga(number, operator, value, charge){
 		number = this.#checkNumber(number)
-		operador = this.#checkString(operador)
-		valor = this.#cleanCost(valor);
+		operator = this.#checkString(operator)
+		value = this.#cleanCost(value);
 
 		if (!this.#checkNumber(number)) throw new Error("Invalid phone number");
 
 		// Check if valor is a multiple of 1000
-		if (valor === false) throw new Error("Invalid cost");
+		if (value === false) throw new Error("Invalid cost");
 
 		// Get the ID of the operador
-		const operadorID = operadores[operador];
+		const operadorID = operadores[operator];
 		if (!operadorID) throw new Error("Invalid operador E1");
 
     // identify the type of cobro
-		cobro = this.#cobroType(cobro);
-		if (this.saldo < parseInt(valor)) throw new Error("Balance insufficient");
+		charge = this.#cobroType(charge);
+		if (this.saldo < parseInt(value)) throw new Error("Balance insufficient");
 
 		this.#data = Object.assign(this.#data, {
 		"o": operadorID,
 		"n": number,
-		"v": valor,
+		"v": value,
 		"tk": this.tk,
-		"t": cobro
+		"t": charge
 		})
 
-    this.bill.set(this.tk, {"number": number, "value": valor, "operator": operador});
+    this.bill.set(this.tk, {"number": number, "value": value, "operator": operator});
 
 		// Complete the headers with the body data in json format
 		this.#dataBody.body = JSON.stringify(this.#data);
@@ -214,74 +212,74 @@ class miPago {
   /**
 	 *  | MiPago - Recarga Paquetes|
 	 * @param {number} number - Phone number to send
-	 * @param {String} operador Chip operator to send
-	 * @param {number} paq - paqID to send
-	 * @param {String} cobro Saldo - Ganancia
+	 * @param {String} operator Chip operator to send
+	 * @param {number} pack - package ID to send
+	 * @param {String} charge Saldo - Ganancia
 	 * @return {Object} Object with data
 	 */
-	recargaPaq(number, operador, paq, cobro){
+	recargaPaq(number, operator, pack, charge){
 		number = this.#checkNumber(number)
-		operador = this.#checkString(operador);
+		operator = this.#checkString(operator);
 	
 		if (!this.#checkNumber(number)) throw new Error("Invalid phone number");
 	
 		// Get the ID of the operador
-		const operadorID = paquetes.get(operador).id;
+		const operadorID = paquetes.get(operator).id;
 		// Get the packges of operador
-		const paqs = paquetes.get(operador).paqs;
+		const paqs = paquetes.get(operator).paqs;
 		// if (!operadorID) throw new Error("Invalid operador. E1");
 
-		paq = paqs.find(e => e.id == paq)
+		pack = paqs.find(e => e.id == pack)
 
-		if (!paq) throw new Error("Invalid package id");
+		if (!pack) throw new Error("Invalid package id");
 	
 		// Save the type of the cobro
-		cobro = this.#cobroType(cobro);
+		charge = this.#cobroType(charge);
 	
 		this.#data = Object.assign(this.#data, {
 			"o": operadorID,
 			"n": number,
-			"p": paq,
+			"p": pack,
 			"tk": this.tk,
-			"t": cobro
+			"t": charge
 		})
 	
-		this.bill.set(this.tk, {"number": number, "value": valor, "operator": operador});
+		this.bill.set(this.tk, {"number": number, "paqu": pack.price, "operator": operator});
 	
 		// Complete the headers with the body data in json format
 		this.#dataBody.body = JSON.stringify(this.#data);
 	
-		fetchAPI(this.#dataBody)
+		this.#fetchAPI(this.#dataBody)
 		.then( res => {
-      this.#results = res;
-      this.#results.tk = this.tk;
+      		this.#results = res;
+      		this.#results.tk = this.tk;
 		  
-      return this.#results;
+    		return this.#results;
 		})
 		.catch( err => {
-      this.#results = err;
-      this.#results.tk = this.tk;
+      		this.#results = err;
+      		this.#results.tk = this.tk;
 		  
-      return this.#results;
-    });
+      		return this.#results;
+    	});
 	}
 
   /**
    *  | MiPago - Consulta Paquetes por operador |
-   * @param {Strign} operador - Operator to search package
+   * @param {Strign} operator - Operator to search package
    * @param {String} filter - Filter to search package (optional)
    * @return {Array} Array with all packages found
    */
-  queryPaqs(operador, filter = "") {
-    if (!operador) throw new Error("Invalid operator");
+  queryPaqs(operator, filter = "") {
+    if (!operator) throw new Error("Invalid operator");
 
-	  operador = this.#checkString(operador);
+	  operator = this.#checkString(operator);
 	  filter = this.#checkString(filter);
-    const paqsOp = paquetes.get(operador);
+    const paqsOp = paquetes.get(operator);
     const paqs = paqsOp.paqs;
 
 	switch (filter) {
-		case "minutos":
+		case ("minutos" || "minutes"):
 		  const filteredMinutos = paqs.filter(e => {
 			  const name = e.name.toLowerCase();
         return (
@@ -327,6 +325,6 @@ class miPago {
 
 /** | MiPago - API | -
  * This a module that provides methods to manage the API of MiPago
- * @module miPago
+ * @module MiPago
  */
-module.exports = miPago
+module.exports = MiPago
